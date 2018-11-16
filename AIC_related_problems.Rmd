@@ -1,0 +1,252 @@
+---
+title: "AIC Related Problems"
+author: "Brian Li"
+date: "2018/11/15"
+output: 
+  html_document:
+    keep_md = TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(leaps)
+library(splines)
+```
+## Q1a
+```{r}
+# Generate data
+set.seed(567)
+funky <- function(x) sin(2*pi*x^3)^3 
+x <- seq(0,1,by=0.01)
+y <- funky(x) + 0.1*rnorm(101)
+g <- glm(y~bs(x,12))
+summary(g)
+
+# Data points and true model
+matplot(x,cbind(y,funky(x)),type="pl",ylab="y",pch=20, lty=1, col=1)
+
+# Data points and spline model
+matplot(x,cbind(y,g$fit), type="pll", ylab="y",lty=c(1,2),
+pch=20, col=1)
+```
+
+## Q1b
+```{r}
+# Calculation of AIC using function
+AIC(g)
+
+# Calculation of AIC by hand (number of parameters = 1 intercept + # of x-coefficients + 1 variance)
+AIC_hand <- 101*(log(2*pi) + 1 + log(sum((g$residuals)**2)/101)) + 2*14
+AIC_hand
+```
+
+## Q1c
+```{r}
+set.seed(567)
+knots <- c(3:30)
+aic <- NULL
+g <- list()
+funky <- function(x) sin(2*pi*x^3)^3 
+x <- seq(0,1,by=0.01)
+y <- funky(x) + 0.1*rnorm(101)
+
+for (i in 1:length(knots)){
+  g[[i]] <- glm(y~bs(x,knots[i]))
+  aic[i] <- AIC(g[[i]])
+}
+
+# Plot of AIC versus knows
+plot(knots, aic)
+
+# Best Model
+best <- g[[which(aic == min(aic))]]
+best
+```
+
+## Q1d
+```{r}
+matplot(x,cbind(y,best$fit), type="pll", ylab="y",lty=c(1,2),
+pch=20, col=1)
+```
+
+## Q2a
+```{r}
+library(faraway)
+odor_lm <- lm(odor ~ temp + gas + pack 
+           + I(temp^2) + I(gas^2) + I(pack^2) 
+           + temp:gas + temp:pack + gas:pack, data = odor)
+summary(odor_lm)
+```
+
+## Q2b
+Use the backward elimination method with a cut-off of 5% to select a smaller model.
+```{r}
+odor_lm <- update(odor_lm, . ~ . - temp:pack)
+summary(odor_lm)
+odor_lm <- update(odor_lm, . ~ . - gas:pack)
+summary(odor_lm)
+odor_lm <- update(odor_lm, . ~ . - I(pack^2))
+summary(odor_lm)
+odor_lm <- update(odor_lm, . ~ . - temp:gas)
+summary(odor_lm)
+# At this point, the largest P-value larger than 0.05 comes from temp.
+# Theoretically, I can take temp away so that all parameters are significant.
+# However, that means also taking away gas^2, which is the most significant. 
+# We can't remove lower order term in presence of higher order terms.
+
+```
+
+## Q2c
+Use the step method to select a model using AIC. Using this selected model determine the optimal values of the predictors to minimize odor.
+```{r}
+odor_b <- regsubsets(odor ~ temp + gas + pack 
+          + I(temp^2) + I(gas^2) + I(pack^2)
+          + temp:gas + temp:pack + gas:pack, data = odor)
+
+odor_rs <- summary(odor_b)
+odor_rs$which
+
+AIC <- 15*(log(2*pi)+1+log(odor_rs$rss/15)) + 2*((1+1+1):(nrow(odor_rs$which)+1+1))
+
+which(AIC == min(AIC))
+
+odor_best <- lm(odor ~ temp + gas + pack + I(temp^2) + I(gas^2), data = odor)
+summary(odor_best)
+
+odor$pred <- predict(odor_best)
+min_predictors <- odor[odor$pred == min(odor$pred),]
+min_predictors
+
+```
+## Q3
+```{r}
+library(MASS)
+
+# Standardize data
+seatpos_s <- as.data.frame(apply(seatpos, 2, function(y) (y - mean(y))/sd(y)))
+
+# Find out best lambda
+seatpos_ridge <- lm.ridge(hipcenter ~ ., data = seatpos_s, lambda = seq(0, 100, len=101))
+which.min(seatpos_ridge$GCV)
+
+# Finding prediction
+m <- apply(seatpos[,-9],2,mean)
+s <- apply(seatpos[,-9],2,sd)
+test <- c(64.800, 263.700, 181.080,178.560, 91.440, 35.640, 40.950, 38.790)
+
+test_matrix <- matrix((test - m)/s, nrow = 1)
+
+ypred_standard <- cbind(1,test_matrix)%*% coef(seatpos_ridge)[23,]
+ypred_standard
+
+ypred <- ypred_standard * sd(seatpos$hipcenter) + mean(seatpos$hipcenter)
+ypred
+
+```
+
+## Q4a
+```{r simulation, include = FALSE}
+
+n <- 100
+p <- 10
+X <- matrix(rnorm(n*p), nrow = n, ncol = p)
+X
+
+rand_error <- rnorm(n)
+beta <- c(0,1,2,3)
+Xs <- cbind(rep(1,n), X[,c(1:3)])
+Y <- Xs %*% beta + rand_error
+
+```
+```{r 4a}
+# Fit model
+df <- data.frame(X,Y)
+fit <- lm(Y ~ ., data = df)
+fit_sum <- summary(fit)
+fit_sum
+
+# Extract the estimate of variance
+var_est <- fit_sum$sigma**2
+var_est
+
+```
+
+## Q4b
+```{r 4b}
+# Fit subsets
+b <- regsubsets(Y ~ ., data = df)
+rs <- summary(b)
+rs$which
+
+# Calculate AIC (# of parameters = p=3 (the x-coefficient, the constant and variance2))
+AIC <- n*(log(2*pi)+1+log(rs$rss/n)) + 2*((1+1+1):(nrow(rs$which)+1+1))
+
+# Determine which number of predictors has the min AIC
+i_minAIC <- which(AIC == min(AIC))
+
+# Plot AIC vs number of predictors
+plot(AIC ~ I(1:nrow(rs$which)), ylab="AIC", xlab="Number of Predictors")
+
+# Refit model with 4 predictors
+refit <- lm(Y ~ ., data = df[,rs$which[i_minAIC,-1]])
+refit_sum <- summary(refit)
+refit_sum
+
+# Extract the estimate of variance
+var_est_AIC <- refit_sum$sigma**2
+var_est_AIC
+
+```
+The AIC estimate of variance is different from the one from full model.
+
+## Q4c
+```{r 4c}
+n <- 100
+p <- 10
+
+var_est <- NULL
+var_est_AIC <- NULL
+
+for(i in 1:500) {
+
+X <- matrix(rnorm(n*p), nrow = n, ncol = p)
+rand_error <- rnorm(n)
+beta <- c(0,1,2,3)
+Xs <- cbind(rep(1,n), X[,c(1:3)])
+Y <- Xs %*% beta + rand_error
+
+# Fit model
+df <- data.frame(X,Y)
+fit <- lm(Y ~ ., data = df)
+fit_sum <- summary(fit)
+
+# Extract estimate of true variance
+var_est[i] <- fit_sum$sigma**2
+
+# Fit subsets
+b <- regsubsets(Y ~ ., data = df)
+rs <- summary(b)
+
+# Calculate AIC
+AIC <- n*(log(2*pi)+1+log(rs$rss/n)) + 2*((1+1+1):(nrow(rs$which)+1+1))
+
+# Determine which number of predictors has the min AIC
+i_minAIC <- which(AIC == min(AIC))
+
+# Refit model with 4 predictors
+refit <- lm(Y ~ ., data = df[,rs$which[i_minAIC,-1]])
+refit_sum <- summary(refit)
+
+# Extract the estimate of variance from AIC chosen model
+var_est_AIC[i] <- refit_sum$sigma**2
+
+}
+
+plot(var_est, var_est_AIC)
+abline(a = 0,b = 1)
+hist(var_est_AIC/var_est)
+```
+The AIC estimate of error variance has a linear relationship with the least square estimate of variance.
+
+## Q4d
+There is a systematic under estimation of the error variance from sub model selected by AIC criteria. The difference is not that big, but may impact the linear model as a tool for inferencing (e.g. constructing confidence interval). However, prediction should not be affected much.
