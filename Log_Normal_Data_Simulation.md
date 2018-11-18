@@ -18,11 +18,7 @@ expected_mean_est_MLE <- NULL
 bias_MOM <- NULL
 bias_MLE <- NULL
 
-<<<<<<< HEAD
 n <- seq(10,1000,by = 10)
-=======
-n <- seq(10,100,by = 10)
->>>>>>> 17c6b275468ffb15fb169c51df2a82d6d4b6ea11
 trials <- 10000
 
 for (j in 1:length(n)) {
