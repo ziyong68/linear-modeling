@@ -18,7 +18,7 @@ expected_mean_est_MLE <- NULL
 bias_MOM <- NULL
 bias_MLE <- NULL
 
-n <- seq(10,100,by = 10)
+n <- seq(10,1000,by = 10)
 trials <- 10000
 
 for (j in 1:length(n)) {
@@ -55,6 +55,7 @@ for (j in 1:length(n)) {
 
 library(ggplot2)
 df <- data.frame(n, bias_MOM, bias_MLE)
+
 p <- ggplot(df, aes(x = n)) + geom_line(aes(y=bias_MOM, colour = "MOM")) +geom_line(aes(y = bias_MLE, color = "MLE"))
 p
 ```
