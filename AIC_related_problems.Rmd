@@ -3,8 +3,8 @@ title: "AIC Related Problems"
 author: "Brian Li"
 date: "2018/11/15"
 output: 
-  html_document:
-    keep_md = TRUE
+  html_document: 
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
