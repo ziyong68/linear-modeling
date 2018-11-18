@@ -646,6 +646,7 @@ hist(var_est_AIC/var_est)
 ```
 
 ![](AIC_related_problems_files/figure-html/4c-2.png)<!-- -->
+
 The AIC estimate of error variance has a linear relationship with the least square estimate of variance.
 
 ## Q4d
